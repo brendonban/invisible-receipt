@@ -9,7 +9,6 @@ import { REFUND_LEVELS, MAX_OWN_STATEMENT, refundOptions, computeRefund } from '
 // Screens: welcome → pre → shop → receipt → reduce → refund → post → thanks
 const ORDER = ['pre', 'shop', 'receipt', 'reduce', 'refund', 'post'];
 const STEP_NAMES = { pre: 'check in', shop: 'shop', receipt: 'receipt', reduce: 'choose', refund: 'refund counter', post: 'check out' };
-const DEFAULT_QTY = { worrying: 3, apologies: 12, pleasing: 20 }; // from the activity card
 
 // randomUUID only exists on https/localhost; fall back so phones on a LAN test still work.
 const uuid = () => (globalThis.crypto?.randomUUID?.() ??
@@ -18,12 +17,33 @@ const uuid = () => (globalThis.crypto?.randomUUID?.() ??
     return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
   }));
 
+// Prototype gallery previews open the game at one screen with sample answers:
+// /?demo=shop. Nothing is saved and no email is sent in this mode.
+const DEMO_STEPS = ['welcome', 'pre', 'shop', 'receipt', 'reduce', 'refund', 'post', 'thanks'];
+
+function demoSession(step) {
+  const s = newSession();
+  const after = name => DEMO_STEPS.indexOf(step) > DEMO_STEPS.indexOf(name);
+  if (step === 'welcome') return s;
+  s.preMood = 2; s.preEnergy = 4;
+  if (step === 'pre') return s;
+  s.qty = { ...s.qty, worrying: 3, apologies: 12, pleasing: 20, skipped_break: 2 };
+  s.custom = [{ id: 'custom_1_demo', label: 'Replying to group chats', drain: 'heavy', qty: 2 }];
+  if (step === 'reduce' || after('reduce')) s.reduceItem = 'apologies';
+  if (step === 'refund' || after('refund')) { s.refundStatement = 'apologies_1'; s.refundLevel = 'some'; }
+  if (after('refund')) s.refundIssued = true;
+  if (step === 'post' || step === 'thanks') {
+    s.postMood = 4; s.postEnergy = 6; s.postAware = 4; s.postHelpful = 5;
+  }
+  return s;
+}
+
 function newSession() {
   return {
     id: uuid(),
     startedAt: new Date().toISOString(),
     preMood: null, preEnergy: 5,
-    qty: Object.fromEntries(ITEMS.map(i => [i.id, DEFAULT_QTY[i.id] ?? 0])),
+    qty: Object.fromEntries(ITEMS.map(i => [i.id, 0])),
     custom: [], // [{ id, label, drain, qty }]
     reduceItem: null,
     refundStatement: null, refundOwnText: '', refundLevel: null, refundIssued: false,
@@ -43,8 +63,26 @@ function Header() {
       <div className="top-inner">
         <div className="brand"><span className="dot" aria-hidden="true" />Emotional Health Project</div>
         <div className="top-title"><b>The Invisible Work Receipt</b></div>
+        <NeedToTalk variant="head" />
       </div>
     </header>
+  );
+}
+
+// Typed or tapped quantity, 0–999. Selecting on focus means typing replaces
+// the number instead of turning "0" into "05" or "50".
+function Qty({ value, onChange, label }) {
+  const setTo = v => onChange(Math.max(0, Math.min(999, v)));
+  return (
+    <div className="qty">
+      <button type="button" onClick={() => setTo(value - 1)} aria-label={`less ${label}`}>−</button>
+      <input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3} value={value}
+        aria-label={`How many: ${label}`}
+        onFocus={e => e.target.select()}
+        onChange={e => { const d = e.target.value.replace(/\D/g, '').slice(0, 3); setTo(d === '' ? 0 : Number(d)); }}
+        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
+      <button type="button" onClick={() => setTo(value + 1)} aria-label={`more ${label}`}>+</button>
+    </div>
   );
 }
 
@@ -155,12 +193,18 @@ function AddOwn({ count, onAdd }) {
   return (
     <div className="addown">
       <div className="addown-title">Add your own</div>
-      <div className="small">Something else that took energy today?</div>
+      <div className="small">
+        Something else that took energy today? Up to {MAX_CUSTOM_LABEL} characters, and up to {MAX_CUSTOM} items of your own.
+      </div>
       <input className="text" type="text" value={label} maxLength={MAX_CUSTOM_LABEL} disabled={full}
-        placeholder={full ? `That's the max of ${MAX_CUSTOM}` : 'e.g. Replying to group chats'}
+        placeholder={full ? `You've added the max of ${MAX_CUSTOM}` : 'e.g. Replying to group chats'}
         onChange={e => setLabel(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
-        aria-label="Your own invisible work" enterKeyHint="done" />
+        aria-label={`Your own invisible work, up to ${MAX_CUSTOM_LABEL} characters`} aria-describedby="addown-count"
+        enterKeyHint="done" />
+      <div id="addown-count" className={`charcount ${label.length >= MAX_CUSTOM_LABEL ? 'full' : ''}`} aria-live="polite">
+        {full ? `${count} of ${MAX_CUSTOM} added` : `${label.length}/${MAX_CUSTOM_LABEL} characters${label.length >= MAX_CUSTOM_LABEL ? ' · that’s the limit' : ''}`}
+      </div>
       <div className="sub">How draining was it?</div>
       <div className="chips" role="radiogroup" aria-label="How draining was it?">
         {DRAIN_LEVELS.map(d => (
@@ -175,13 +219,14 @@ function AddOwn({ count, onAdd }) {
 
 // The address lives only in this component's state — never in the session
 // object — so it can't reach the survey database.
-function EmailReceipt({ purchases, reduceItem, refund }) {
+function EmailReceipt({ purchases, reduceItem, refund, demo = false }) {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState(null);
 
   async function send(e) {
     e.preventDefault();
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) { setStatus('invalid'); return; }
+    if (demo) { setStatus('demo'); return; }
     setStatus('sending');
     try {
       const res = await fetch('/api/email', {
@@ -210,14 +255,21 @@ function EmailReceipt({ purchases, reduceItem, refund }) {
       {status === 'invalid' && <p className="err">That email doesn&apos;t look quite right.</p>}
       {status === 'error' && <p className="err">Couldn&apos;t send right now. Please try again.</p>}
       {status === 'off' && <p className="err">Email isn&apos;t set up on this site yet.</p>}
+      {status === 'demo' && <p className="err">Prototype preview: no email is sent from here.</p>}
     </form>
   );
 }
 
-function NeedToTalk({ raised }) {
+function NeedToTalk({ variant = 'float' }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = e => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
   return (
-    <div className={`help ${raised ? 'raised' : ''}`}>
+    <div className={`help help-${variant} ${open ? 'is-open' : ''}`}>
       {open && (
         <div className="help-panel" role="dialog" aria-label="Support lines">
           <h3>You don&apos;t have to carry it alone.</h3>
@@ -231,8 +283,10 @@ function NeedToTalk({ raised }) {
           <div className="small" style={{ marginTop: 8 }}>Or talk to one of our team at the booth.</div>
         </div>
       )}
-      <button type="button" className="help-btn" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-        <span className="dot" aria-hidden="true" />{open ? 'Close' : 'Need to talk now?'}
+      <button type="button" className="help-btn" onClick={() => setOpen(o => !o)} aria-expanded={open}
+        aria-label={open ? 'Close support lines' : 'Need to talk now? Show support lines'}>
+        <span className="dot" aria-hidden="true" />
+        {open ? 'Close' : variant === 'head' ? 'Talk now' : 'Need to talk now?'}
       </button>
     </div>
   );
@@ -269,13 +323,23 @@ export default function Game({ initialRef = null }) {
   // Referral code: from receipt.ruangmalaysia.org/<code> or ?ref=<code>.
   // Kept across "Next player" so a whole booth session is tagged.
   const [refCode, setRefCode] = useState(initialRef ?? '');
+  const [demo, setDemo] = useState(null);
 
   const loadStats = test =>
     fetch(`/api/stats${test ? '?test=1' : ''}`, { cache: 'no-store' }).then(r => r.json()).then(setStats).catch(() => {});
 
   useEffect(() => {
-    setS(newSession());
     const params = new URLSearchParams(window.location.search);
+    const demoStep = params.get('demo');
+    if (DEMO_STEPS.includes(demoStep)) {
+      setDemo(demoStep);
+      setS(demoSession(demoStep));
+      setStep(demoStep);
+      setRefCode('um-booth');
+      setMode('test');
+      return;
+    }
+    setS(newSession());
     const test = params.has('test');
     setForceTest(test);
     if (!initialRef) {
@@ -302,15 +366,16 @@ export default function Game({ initialRef = null }) {
   }, [s]);
   const total = lines.reduce((a, l) => a + l.amount, 0);
 
-  const bumpBuiltIn = (id, d) => set({ qty: { ...s.qty, [id]: Math.max(0, Math.min(999, s.qty[id] + d)) } });
+  const setBuiltIn = (id, v) => setS(prev => ({ ...prev, qty: { ...prev.qty, [id]: v } }));
   const addCustom = (label, drain) =>
     set({ custom: [...s.custom, { id: `custom_${s.custom.length + 1}_${Date.now().toString(36)}`, label, drain, qty: 1 }] });
-  const bumpCustom = (id, d) =>
-    set({ custom: s.custom.map(c => c.id === id ? { ...c, qty: Math.max(0, Math.min(999, c.qty + d)) } : c) });
+  const setCustom = (id, v) =>
+    setS(prev => ({ ...prev, custom: prev.custom.map(c => (c.id === id ? { ...c, qty: v } : c)) }));
   const removeCustom = id =>
     set({ custom: s.custom.filter(c => c.id !== id), reduceItem: s.reduceItem === id ? null : s.reduceItem });
 
   async function submit() {
+    if (demo) { go('thanks'); return; } // prototype preview: never saved
     setSaveState('saving');
     try {
       const res = await fetch('/api/session', {
@@ -338,7 +403,9 @@ export default function Game({ initialRef = null }) {
   return (
     <>
       <Header />
-      {isTest && <div className="testbar">Test mode · saved separately, never counted as real data</div>}
+      {demo
+        ? <div className="testbar">Prototype preview · sample answers, nothing is saved or sent</div>
+        : isTest && <div className="testbar">Test mode · saved separately, never counted as real data</div>}
 
       <main className="wrap">
         {step !== 'welcome' && step !== 'thanks' && <Progress step={step} />}
@@ -404,11 +471,7 @@ export default function Game({ initialRef = null }) {
                   return (
                     <div key={i.id} className={`item ${q > 0 ? 'on' : ''}`}>
                       <div className="name"><span className="mark" aria-hidden="true" />{i.label}</div>
-                      <div className="qty">
-                        <button type="button" onClick={() => bumpBuiltIn(i.id, -1)} aria-label={`less ${i.label}`}>−</button>
-                        <b aria-live="polite">{q}</b>
-                        <button type="button" onClick={() => bumpBuiltIn(i.id, 1)} aria-label={`more ${i.label}`}>+</button>
-                      </div>
+                      <Qty value={q} label={i.label} onChange={v => setBuiltIn(i.id, v)} />
                     </div>
                   );
                 })}
@@ -421,11 +484,7 @@ export default function Game({ initialRef = null }) {
                           <button type="button" className="linkbtn" onClick={() => removeCustom(c.id)}>remove</button></small>
                       </span>
                     </div>
-                    <div className="qty">
-                      <button type="button" onClick={() => bumpCustom(c.id, -1)} aria-label={`less ${c.label}`}>−</button>
-                      <b aria-live="polite">{c.qty}</b>
-                      <button type="button" onClick={() => bumpCustom(c.id, 1)} aria-label={`more ${c.label}`}>+</button>
-                    </div>
+                    <Qty value={c.qty} label={c.label} onChange={v => setCustom(c.id, v)} />
                   </div>
                 ))}
               </div>
@@ -599,7 +658,7 @@ export default function Game({ initialRef = null }) {
               </div>
             </div>
             <div className="side">
-              <EmailReceipt reduceItem={s.reduceItem} purchases={toPayload(lines)} refund={refundPayload} />
+              <EmailReceipt reduceItem={s.reduceItem} purchases={toPayload(lines)} refund={refundPayload} demo={Boolean(demo)} />
             </div>
           </div>
         )}
@@ -610,7 +669,7 @@ export default function Game({ initialRef = null }) {
         </footer>
       </main>
 
-      <NeedToTalk raised={step === 'shop'} />
+      <NeedToTalk variant="float" />
     </>
   );
 }

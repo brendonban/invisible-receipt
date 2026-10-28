@@ -158,7 +158,13 @@ h2 {
   font-size: 18px; line-height: 1; cursor: pointer; transition: border-color .15s, background .15s;
 }
 .qty button:hover { border-color: var(--ink); background: var(--yellow-soft); }
-.qty b { min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+.qty input {
+  width: 48px; height: 40px; border: 1.5px solid var(--hair); border-radius: 10px; background: var(--bg);
+  text-align: center; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 0; outline: none;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.qty input:focus { border-color: var(--ink); box-shadow: 0 0 0 3px var(--yellow); }
+.item.on .qty input { border-color: var(--ink); }
 
 /* Add your own */
 .addown { margin-top: 28px; padding-top: 22px; }
@@ -169,6 +175,8 @@ h2 {
 }
 .text:focus { border-bottom-color: var(--ink); box-shadow: 0 2px 0 var(--yellow); }
 .text::placeholder { color: var(--soft); }
+.charcount { font-size: 12px; color: var(--muted); margin-top: 6px; text-align: right; font-variant-numeric: tabular-nums; }
+.charcount.full { color: var(--stamp); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px; }
 .chip {
   border: 1.5px solid var(--hair); background: var(--bg); border-radius: 999px; padding: 9px 16px;
@@ -254,24 +262,12 @@ textarea.text:focus { border-color: var(--ink); box-shadow: none; }
 .emailbox .pill { width: 100%; margin-top: 18px; }
 .err { font-size: 14px; color: var(--stamp); margin: 10px 0 0; }
 
-/* ───────── "Need to talk now?" ───────── */
-.help {
-  position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom));
-  z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
-  pointer-events: none; /* only the pill/panel itself catches taps */
-}
-.help > * { pointer-events: auto; }
-@media (max-width: 759px) {
-  .help-btn { padding: 10px 16px; font-size: 14px; }
-  /* keep page buttons clear of the floating pill */
-  .wrap { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
-}
-.help.raised { bottom: calc(92px + env(safe-area-inset-bottom)); }
-@media (min-width: 960px) { .help.raised { bottom: calc(16px + env(safe-area-inset-bottom)); } }
+/* ───────── "Need to talk now?" ─────────
+   Phones: a small "Talk now" pill in the header, panel drops down below it.
+   760px+: the floating pill bottom-right, like the main EHP site. */
 .help-btn {
   display: inline-flex; align-items: center; gap: 10px; border: 0; border-radius: 999px; cursor: pointer;
-  background: var(--ink); color: #fff; padding: 12px 20px; font-size: 15px; font-weight: 500;
-  box-shadow: 0 8px 24px -8px rgba(0,0,0,.35);
+  background: var(--ink); color: #fff; padding: 12px 20px; font-size: 15px; font-weight: 500; white-space: nowrap;
 }
 .help-btn .dot { width: 10px; height: 10px; border: 0; }
 .help-panel {
@@ -283,6 +279,31 @@ textarea.text:focus { border-color: var(--ink); box-shadow: none; }
 .help-panel a:last-of-type { border-bottom: 0; }
 .help-panel a b { font-size: 16px; white-space: nowrap; }
 .help-panel a small { display: block; color: var(--muted); font-size: 12px; }
+
+/* floating version (tablet/desktop) */
+.help-float {
+  position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+  pointer-events: none;
+}
+.help-float > * { pointer-events: auto; }
+.help-float .help-btn { box-shadow: 0 8px 24px -8px rgba(0,0,0,.35); }
+
+/* header version (phones) */
+.help-head { flex-shrink: 0; }
+.help-head .help-btn { padding: 7px 12px; font-size: 13px; gap: 7px; min-height: 34px; }
+.help-head .help-btn .dot { width: 8px; height: 8px; }
+.help-head .help-panel {
+  position: fixed; top: calc(var(--header-h) + 8px); right: var(--gutter); left: var(--gutter);
+  width: auto; max-width: 420px; margin-left: auto; z-index: 40;
+}
+
+@media (max-width: 759px) { .help-float { display: none; } }
+@media (min-width: 760px) { .help-head { display: none; } }
+@media (max-width: 374px) {
+  .brand { font-size: 14px; gap: 8px; }
+  .help-head .help-btn { padding: 7px 10px; }
+}
 
 /* ───────── Credit ───────── */
 .credit {
@@ -380,3 +401,54 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ───────── Prototype gallery (/prototypes) — EHP white design ───────── */
+.pg { background: var(--bg); color: var(--ink); min-height: 100dvh; }
+.pg-wrap { max-width: 900px; margin: 0 auto; padding: 28px var(--gutter) calc(64px + env(safe-area-inset-bottom)); }
+@media (min-width: 760px) { .pg-wrap { padding-top: 56px; } }
+.pg-wrap.wide { max-width: 1200px; }
+.pg-head { margin-bottom: 8px; }
+.pg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.pg-count { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); padding-bottom: 12px; border-bottom: 1.5px solid var(--ink); margin: 8px 0 20px; }
+.pg-card {
+  display: block; position: relative; background: var(--bg); border: 1.5px solid var(--hair); border-radius: 22px;
+  padding: 22px 24px 22px; color: var(--ink); text-decoration: none; transition: border-color .15s, background .15s;
+}
+@media (max-width: 559px) { .pg-card { padding: 18px 18px; border-radius: 18px; } }
+a.pg-card:hover { border-color: var(--ink); background: #fffdf3; }
+a.pg-card:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.pg-meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pg-meta .pg-num { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-weight: 700; color: var(--ink); }
+.pg-meta .pg-num::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--yellow); border: 1.5px solid var(--ink); }
+.pg-card h2 { font-size: 20px; font-weight: 600; letter-spacing: -.015em; margin: 14px 0 6px; line-height: 1.25; padding-right: 28px; }
+.pg-card p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.55; padding-right: 28px; }
+.pg-card .pg-go { position: absolute; right: 22px; bottom: 22px; font-size: 18px; color: var(--soft); transition: color .15s, transform .15s; }
+a.pg-card:hover .pg-go { color: var(--ink); transform: translateX(3px); }
+
+/* screen subpage */
+.pg-back { display: inline-block; color: var(--muted); text-decoration: none; font-size: 15px; margin-bottom: 24px; }
+.pg-back:hover { color: var(--ink); }
+.pg-detail { max-width: 760px; margin-bottom: 36px; }
+.pg-detail h1 { margin: 14px 0 10px; }
+.pg-detail .lead { margin-bottom: 0; }
+.pg-notes { margin: 20px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.pg-notes li { position: relative; padding-left: 20px; font-size: 15px; line-height: 1.55; }
+.pg-notes li::before { content: ""; position: absolute; left: 0; top: .5em; width: 9px; height: 9px; border-radius: 50%; background: var(--yellow); border: 1.5px solid var(--ink); }
+
+.pg-frames { display: grid; gap: 28px; align-items: start; grid-template-columns: minmax(0, 1fr); padding-top: 28px; border-top: 1.5px solid var(--ink); }
+@media (min-width: 900px) { .pg-frames { grid-template-columns: 300px minmax(0, 1fr); gap: 40px; } }
+.pg-frame { margin: 0; }
+.pg-frame.phone { max-width: 320px; width: 100%; justify-self: center; }
+.pg-screen { position: relative; overflow: hidden; background: #fff; width: 100%; }
+.pg-frame.phone .pg-screen { border-radius: 30px; border: 8px solid var(--ink); box-sizing: content-box; width: calc(100% - 16px); }
+.pg-frame.desktop .pg-screen { border-radius: 14px; border: 1.5px solid var(--hair); box-shadow: 0 24px 48px -28px rgba(0,0,0,.28); }
+.pg-screen iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; background: #fff; }
+.pg-frame figcaption { text-align: center; font-size: 13px; color: var(--muted); margin-top: 12px; }
+.pg-hint { font-size: 14px; color: var(--muted); margin: 24px 0 0; }
+.pg-hint a { color: var(--ink); text-decoration-color: var(--yellow); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+
+.pg-pager { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 40px; }
+.pg-pager a { display: block; border: 1.5px solid var(--hair); border-radius: 18px; padding: 16px 18px; color: var(--ink); text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.3; transition: border-color .15s; }
+.pg-pager a:hover { border-color: var(--ink); }
+.pg-pager a span { display: block; font-size: 13px; font-weight: 400; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); }
+.pg-pager a.next { text-align: right; }
