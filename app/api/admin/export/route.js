@@ -4,6 +4,7 @@ import {
 } from '@/lib/admin';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store'; // never reuse old database answers
 
 // CSV for Excel / Google Sheets / SPSS. Protected by middleware.js.
 const COLUMNS = [
