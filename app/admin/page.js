@@ -6,6 +6,7 @@ import { COUNTER_SINCE } from '@/lib/stats';
 import RefLink from './RefLink';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store'; // never reuse old database answers
 export const metadata = { title: 'Admin · The Invisible Work Receipt', robots: { index: false, follow: false } };
 
 const signed = (v, d = 1) => (v == null ? '–' : `${v > 0 ? '+' : ''}${v.toFixed(d)}`);

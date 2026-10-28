@@ -1,6 +1,7 @@
 import { query, hasDb, TABLES } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store'; // never reuse old database answers
 
 // Deletes TEST sessions only. The real table is never touched here.
 // Protected by middleware.js, plus a same-site check and a typed confirmation.

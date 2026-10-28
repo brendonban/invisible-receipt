@@ -5,6 +5,7 @@ import { computeRefund } from '@/lib/refunds';
 import { normalizeRef } from '@/lib/ref';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store'; // never reuse old database answers
 
 export async function POST(req) {
   let body;
