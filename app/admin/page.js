@@ -1,4 +1,3 @@
-import { headers } from 'next/headers';
 import { query, hasDb, TABLES } from '@/lib/db';
 import {
   readFilters, loadDashboard, fmtTime, purchasesText, reduceText, refundText, levelText, num,
@@ -65,8 +64,9 @@ function DayChart({ days }) {
 
 export default async function Admin({ searchParams }) {
   const filters = readFilters(searchParams);
-  const host = headers().get('host') ?? 'receipt.ruangmalaysia.org';
-  const origin = `${host.startsWith('localhost') ? 'http' : 'https'}://${host}`;
+  // Referral links always use the public address, even when the admin page
+  // is opened on a *.vercel.app or preview link. Override with PUBLIC_SITE_URL.
+  const origin = (process.env.PUBLIC_SITE_URL || 'https://receipt.ruangmalaysia.org').replace(/\/+$/, '');
   const base = { tab: filters.tab, ref: filters.ref ?? '', from: filters.from ?? '', to: filters.to ?? '' };
   const filtered = Boolean(filters.ref || filters.from || filters.to);
 
